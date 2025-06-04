@@ -3,12 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extintor 3D Profissional</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Extintor 3D Interativo</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: Arial, sans-serif;
+            max-width: 250px;
+        }
+    </style>
 </head>
 <body>
-    <div id="info">Clique em qualquer parte do extintor</div>
     <div id="tooltip"></div>
-    <script src="app.js"></script>
+    
+    <!-- Three.js e OrbitControls via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls, extintor;
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+
+        const partInfo = {
+            corpo: "Corpo principal em aço (vermelho) - Armazena o agente extintor sob pressão",
+            manometro: "Manômetro (branco) - Indica a pressão interna do cilindro",
+            mangueira: "Mangueira flexível (preta) - Direciona o jato do agente extintor",
+            alca: "Alça de transporte (cinza) - Para carregar o extintor com segurança",
+            pino: "Pino de segurança (amarelo) - Bloqueia o gatilho contra acionamento acidental"
+        };
+
+        init();
+        animate();
+
+        function init() {
+            // Configuração da cena
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            // Câmera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(2, 2, 3);
+
+            // Renderizador
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Controles
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // Iluminação
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // Criar extintor
+            createExtintor();
+
+            // Eventos
+            window.addEventListener('click', onMouseClick);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createExtintor() {
+            extintor = new THREE.Group();
+
+            // Corpo principal
+            const corpoGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.2, 32);
+            const corpoMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                metalness: 0.2,
+                roughness: 0.5
+            });
+            const corpo = new THREE.Mesh(corpoGeometry, corpoMaterial);
+            corpo.position.y = 0.6;
+            corpo.name = "corpo";
+            extintor.add(corpo);
+
+            // Base
+            const baseGeometry = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 32);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x444444,
+                metalness: 0.7,
+                roughness: 0.3
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 0.05;
+            extintor.add(base);
+
+            // Tampa superior
+            const tampaGeometry = new THREE.SphereGeometry(0.16, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const tampaMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x666666,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const tampa = new THREE.Mesh(tampaGeometry, tampaMaterial);
+            tampa.position.y = 1.35;
+            extintor.add(tampa);
+
+            // Alça
+            const alcaGeometry = new THREE.TorusGeometry(0.12, 0.015, 16, 100, Math.PI);
+            const alcaMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x888888,
+                metalness: 0.8,
+                roughness: 0.1
+            });
+            const alca = new THREE.Mesh(alcaGeometry, alcaMaterial);
+            alca.position.set(0, 1.42, 0);
+            alca.rotation.z = Math.PI / 2;
+            alca.name = "alca";
+            extintor.add(alca);
+
+            // Pino de segurança
+            const pinoGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.08, 8);
+            const pinoMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffff00,
+                metalness: 0.4,
+                roughness: 0.4
+            });
+            const pino = new THREE.Mesh(pinoGeometry, pinoMaterial);
+            pino.position.set(0.12, 1.37, 0);
+            pino.rotation.z = Math.PI / 2;
+            pino.name = "pino";
+            extintor.add(pino);
+
+            // Manômetro
+            const manometroGeometry = new THREE.CylinderGeometry(0.035, 0.035, 0.02, 16);
+            const manometroMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xffffff,
+                metalness: 0.5,
+                roughness: 0.3
+            });
+            const manometro = new THREE.Mesh(manometroGeometry, manometroMaterial);
+            manometro.position.set(0, 1.37, 0.12);
+            manometro.rotation.x = Math.PI / 2;
+            manometro.name = "manometro";
+            extintor.add(manometro);
+
+            // Mangueira
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0.12, 1.3, 0),
+                new THREE.Vector3(0.25, 1.1, 0.1),
+                new THREE.Vector3(0.3, 0.7, 0.2),
+                new THREE.Vector3(0.2, 0.3, 0.15)
+            ]);
+            const mangueiraGeometry = new THREE.TubeGeometry(curve, 50, 0.02, 8);
+            const mangueiraMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x111111,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const mangueira = new THREE.Mesh(mangueiraGeometry, mangueiraMaterial);
+            mangueira.name = "mangueira";
+            extintor.add(mangueira);
+
+            scene.add(extintor);
+        }
+
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(extintor.children, true);
+
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                showTooltip(obj, event.clientX, event.clientY);
+            }
+        }
+
+        function showTooltip(obj, x, y) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = `${x + 15}px`;
+            tooltip.style.top = `${y + 15}px`;
+            tooltip.innerHTML = partInfo[obj.name] || "Componente do extintor";
+            tooltip.style.opacity = 1;
+            
+            setTimeout(() => {
+                tooltip.style.opacity = 0;
+            }, 3000);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
